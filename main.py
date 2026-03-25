@@ -153,6 +153,14 @@ def matches_filters(item, filters):
 def health():
     return {"status": "ok"}
 
+@app.get("/debug-search")
+def debug_search():
+    try:
+        results = notion.search(query="Two_Travel_Master_Inventory")
+        return results
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/search")
 def search(req: SearchRequest):
     filters = extract_filters(req.text)
