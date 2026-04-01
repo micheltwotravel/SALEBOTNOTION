@@ -96,26 +96,28 @@ async function askOpenAI(userMessage, threadId) {
         lines.find(l => l.startsWith(prefix))?.replace(prefix, "").trim() || "";
 
       const cityLine = getVal("Ciudad: ");
-      const [cityPart, neighborhoodPart] = cityLine.split("|").map(s => s?.trim() || "");
+const cityParts = cityLine.split("|");
+const cityPart = (cityParts[0] || "").trim();
+const neighborhoodPart = (cityParts[1] || "").trim();
 
-      const roomsLine = getVal("Habitaciones: ");
-      const roomsMatch = roomsLine.match(/Habitaciones:\s*(.*?)\s*\|\s*Baños:\s*(.*?)\s*\|\s*Max personas:\s*(.*)/);
+const roomsLine = lines.find(l => l.startsWith("Habitaciones:")) || "";
+const roomsMatch = roomsLine.match(/Habitaciones:\s*(.*?)\s*\|\s*Baños:\s*(.*?)\s*\|\s*Max personas:\s*(.*)/);
 
-      return {
-        raw: block,
-        name: getVal("Nombre: "),
-        type: getVal("Tipo: "),
-        city: cityPart.replace("Ciudad:", "").trim(),
-        neighborhood: neighborhoodPart.replace("Vecindario:", "").trim(),
-        amenities: getVal("Amenities: ").toLowerCase(),
-        price: getVal("Precio: "),
-        description: getVal("Descripción: ").toLowerCase(),
-        website: getVal("Website: "),
-        airbnb: getVal("Airbnb: "),
-        bedrooms: roomsMatch ? roomsMatch[1].trim() : "",
-        bathrooms: roomsMatch ? roomsMatch[2].trim() : "",
-        maxPax: roomsMatch ? parseInt(roomsMatch[3]) || 0 : 0,
-      };
+return {
+  raw: block,
+  name: getVal("Nombre: "),
+  type: getVal("Tipo: "),
+  city: cityPart.replace("Ciudad:", "").trim(),
+  neighborhood: neighborhoodPart.replace("Vecindario:", "").trim(),
+  amenities: getVal("Amenities: ").toLowerCase(),
+  price: getVal("Precio: "),
+  description: getVal("Descripción: ").toLowerCase(),
+  website: getVal("Website: "),
+  airbnb: getVal("Airbnb: "),
+  bedrooms: roomsMatch ? roomsMatch[1].trim() : "",
+  bathrooms: roomsMatch ? roomsMatch[2].trim() : "",
+  maxPax: roomsMatch ? parseInt(roomsMatch[3]) || 0 : 0,
+};
     })
     .filter(p => p.name);
 
