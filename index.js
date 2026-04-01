@@ -15,7 +15,7 @@ const app = new App({
 });
 
 // ── Notion API directa ────────────────────────────────────────────────────────
-const NOTION_DB_ID = "313ca3b3327180f79025d756d56510e3";
+const NOTION_DB_ID = "313ca3b3-3271-8073-85ec-f3ec138861f0";
 
 async function searchNotion() {
   const res = await fetch("https://api.notion.com/v1/databases/" + NOTION_DB_ID + "/query", {
