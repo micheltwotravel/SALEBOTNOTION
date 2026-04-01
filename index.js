@@ -1628,9 +1628,10 @@ app.event("app_mention", async ({ event, say }) => {
 });
 
 app.message(async ({ message, say }) => {
-  if (
+   if (
     message.subtype ||
     message.bot_id ||
+    message.channel_type === "channel" ||
     String(message.text || "").includes("<@")
   ) return;
 
