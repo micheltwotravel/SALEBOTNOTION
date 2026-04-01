@@ -187,11 +187,9 @@ return {
     .sort((a, b) => b.maxPax - a.maxPax)
     .slice(0, 3);
 
-  if (!filtered.length) {
-    return q.includes("spanish") || /[áéíóúñ¿¡]/i.test(userMessage)
-      ? "No encontré opciones relevantes en el inventario en este momento."
-      : "I couldn't find relevant options in the inventory right now.";
-  }
+ if (!filtered.length) {
+  return `Connected to inventory. Total properties found: ${properties.length}. Matches found: ${filtered.length}.`;
+}
 
   const isSpanish = /[áéíóúñ¿¡]|\b(casas|cartagena|personas|piscina|centro)\b/i.test(userMessage);
 
