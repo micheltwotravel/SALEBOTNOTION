@@ -26,9 +26,8 @@ async function searchNotion() {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      filter: { property: "Status", select: { equals: "Active" } },
-      page_size: 50,
-    }),
+  page_size: 50,
+}),
   });
   const data = await res.json();
   if (!data.results) return "No se pudo obtener el inventario.";
