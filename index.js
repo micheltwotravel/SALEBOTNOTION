@@ -61,7 +61,7 @@ async function searchNotion() {
     ].filter(l => !l.endsWith(": ") && !l.endsWith(": |  | ")).join("\n");
   });
 
-  return items.join("\n\n---\n\n");
+  return items.slice(0, 5).join("\n\n---\n\n");
 }
 
 // ── Historial por conversación ────────────────────────────────────────────────
@@ -125,6 +125,11 @@ CLOSING:
   - "Would you like me to send these to the client?"
   - "Should I share these options with the client?"
   - "If you'd like, I can also help draft the message for the client."
+  
+  -If you mention a property name that is not in the inventory, your answer is incorrect.
+
+
+-Before responding, verify that every property name exists in the inventory list.
 
 Your job is to help the team recommend the best real options from inventory while sounding helpful, accurate, and professional.`;
 // ── Llamada a OpenAI ──────────────────────────────────────────────────────────
@@ -147,7 +152,16 @@ async function askOpenAI(userMessage, threadId) {
 
     { role: "system", content: `VALID PROPERTY NAMES:\n${propertyNames}` },
 
-    { role: "system", content: `INVENTARIO TWO TRAVEL...\n${inventory}` },
+    { 
+  role: "system", 
+  content: `AVAILABLE PROPERTIES (USE ONLY THESE):
+
+${inventory}
+
+You MUST ONLY use property names that appear exactly above.
+If a property is not listed here, it does NOT exist.
+Do NOT create or assume any property names.`
+},
 
     ...history,
   ];
