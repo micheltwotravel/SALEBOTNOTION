@@ -1,21 +1,19 @@
 {
-  "name": "two-travel-slack-bot",
-  "version": "1.0.0",
-  "description": "Two Travel sales assistant bot for Slack",
+  "name": "twotravel-sales-bot",
+  "version": "2.0.0",
+  "description": "Slack sales assistant for Two Travel inventory using Notion + OpenAI",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
-  },
-  "dependencies": {
-    "@slack/bolt": "^3.17.0",
-    "openai": "^4.47.0",
-    "dotenv": "^16.4.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "dev": "node --watch index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.20.1",
+    "dotenv": "^16.4.5",
+    "openai": "^4.56.0"
   }
 }
