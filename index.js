@@ -86,49 +86,129 @@ Rules:
 - End with: "Would you like me to send these to the client?"`;
 // ── Llamada a OpenAI ──────────────────────────────────────────────────────────
 async function askOpenAI(userMessage, threadId) {
-  const history = getHistory(threadId);
   const inventory = await searchNotion();
 
-  // 🔥 CREA propertyNames DESDE EL INVENTARIO
-  const propertyNames = inventory
-    .split("\n")
-    .filter(line => line.startsWith("Nombre:"))
-    .map(line => line.replace("Nombre: ", ""))
-    .join(", ");
+  const properties = inventory
+    .split("\n\n---\n\n")
+    .map(block => {
+      const lines = block.split("\n");
+      const getVal = (prefix) =>
+        lines.find(l => l.startsWith(prefix))?.replace(prefix, "").trim() || "";
 
-  if (history.length > 16) history.splice(0, history.length - 16);
-  history.push({ role: "user", content: userMessage });
+      const cityLine = getVal("Ciudad: ");
+      const [cityPart, neighborhoodPart] = cityLine.split("|").map(s => s?.trim() || "");
 
-  const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+      const roomsLine = getVal("Habitaciones: ");
+      const roomsMatch = roomsLine.match(/Habitaciones:\s*(.*?)\s*\|\s*Baños:\s*(.*?)\s*\|\s*Max personas:\s*(.*)/);
 
-    { role: "system", content: `VALID PROPERTY NAMES:\n${propertyNames}` },
+      return {
+        raw: block,
+        name: getVal("Nombre: "),
+        type: getVal("Tipo: "),
+        city: cityPart.replace("Ciudad:", "").trim(),
+        neighborhood: neighborhoodPart.replace("Vecindario:", "").trim(),
+        amenities: getVal("Amenities: ").toLowerCase(),
+        price: getVal("Precio: "),
+        description: getVal("Descripción: ").toLowerCase(),
+        website: getVal("Website: "),
+        airbnb: getVal("Airbnb: "),
+        bedrooms: roomsMatch ? roomsMatch[1].trim() : "",
+        bathrooms: roomsMatch ? roomsMatch[2].trim() : "",
+        maxPax: roomsMatch ? parseInt(roomsMatch[3]) || 0 : 0,
+      };
+    })
+    .filter(p => p.name);
 
-    { 
-  role: "system", 
-  content: `AVAILABLE PROPERTIES (USE ONLY THESE):
+  const q = userMessage.toLowerCase();
 
-${inventory}
+  const wantsCartagena = q.includes("cartagena");
+  const wantsCentro = q.includes("centro") || q.includes("center") || q.includes("historic center");
+  const wantsPool = q.includes("pool") || q.includes("piscina");
+  const wantsVilla = q.includes("villa") || q.includes("villas");
+  const paxMatch = q.match(/\b(\d+)\b/);
+  const wantedPax = paxMatch ? parseInt(paxMatch[1]) : 0;
 
-You MUST ONLY use property names that appear exactly above.
-If a property is not listed here, it does NOT exist.
-Do NOT create or assume any property names.`
-},
+  let filtered = properties.filter(p => {
+    let ok = true;
 
-    ...history,
-  ];
+    if (wantsCartagena) {
+      ok = ok && (
+        p.city.toLowerCase().includes("cartagena") ||
+        p.neighborhood.toLowerCase().includes("cartagena")
+      );
+    }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 1024,
-    messages,
+    if (wantsCentro) {
+      ok = ok && (
+        p.neighborhood.toLowerCase().includes("centro") ||
+        p.neighborhood.toLowerCase().includes("historic") ||
+        p.neighborhood.toLowerCase().includes("walled city")
+      );
+    }
+
+    if (wantedPax) {
+      ok = ok && p.maxPax >= wantedPax;
+    }
+
+    if (wantsPool) {
+      ok = ok && (
+        p.amenities.includes("pool") ||
+        p.amenities.includes("piscina") ||
+        p.description.includes("pool") ||
+        p.description.includes("piscina")
+      );
+    }
+
+    if (wantsVilla) {
+      ok = ok && (
+        p.type.toLowerCase().includes("villa") ||
+        p.type.toLowerCase().includes("house") ||
+        p.type.toLowerCase().includes("casa")
+      );
+    }
+
+    return ok;
   });
 
-  const reply = response.choices[0].message.content;
-  history.push({ role: "assistant", content: reply });
-  return reply;
-}
+  if (!filtered.length) {
+    filtered = properties.filter(p => {
+      let score = 0;
+      if (wantsCartagena && (p.city.toLowerCase().includes("cartagena") || p.neighborhood.toLowerCase().includes("cartagena"))) score += 3;
+      if (wantsCentro && p.neighborhood.toLowerCase().includes("centro")) score += 3;
+      if (wantedPax && p.maxPax >= wantedPax) score += 4;
+      if (wantsPool && (p.amenities.includes("pool") || p.amenities.includes("piscina") || p.description.includes("pool") || p.description.includes("piscina"))) score += 3;
+      return score > 0;
+    });
+  }
 
+  filtered = filtered
+    .sort((a, b) => b.maxPax - a.maxPax)
+    .slice(0, 3);
+
+  if (!filtered.length) {
+    return q.includes("spanish") || /[áéíóúñ¿¡]/i.test(userMessage)
+      ? "No encontré opciones relevantes en el inventario en este momento."
+      : "I couldn't find relevant options in the inventory right now.";
+  }
+
+  const isSpanish = /[áéíóúñ¿¡]|\b(casas|cartagena|personas|piscina|centro)\b/i.test(userMessage);
+
+  if (isSpanish) {
+    const intro = "Estas son algunas opciones reales del inventario que podrían servirte:\n\n";
+    const body = filtered.map(p => {
+      const link = p.website || p.airbnb;
+      return `*${p.name}* en ${p.neighborhood || p.city}. Tiene ${p.bedrooms} habitaciones, ${p.bathrooms} baños y capacidad para ${p.maxPax} personas. Amenities: ${p.amenities || "No especificados"}. Precio: ${p.price || "No especificado"}. ${link ? `Link: ${link}` : ""}`;
+    }).join("\n\n");
+    return `${intro}${body}\n\n¿Quieres que se las envíe al cliente?`;
+  } else {
+    const intro = "Here are a few real inventory options that could be a good fit:\n\n";
+    const body = filtered.map(p => {
+      const link = p.website || p.airbnb;
+      return `*${p.name}* in ${p.neighborhood || p.city}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathrooms, and accommodates up to ${p.maxPax} guests. Amenities: ${p.amenities || "Not specified"}. Price: ${p.price || "Not specified"}. ${link ? `Link: ${link}` : ""}`;
+    }).join("\n\n");
+    return `${intro}${body}\n\nWould you like me to send these to the client?`;
+  }
+}
 // ── Eventos de Slack ──────────────────────────────────────────────────────────
 app.event("app_mention", async ({ event, say }) => {
   try {
