@@ -571,7 +571,9 @@ function normalizeProperty(page) {
 }
 
 function isValidInventoryItem(property) {
-  return Boolean(property.name);
+  if (!property.name) return false;
+  if (property.status && property.status === "Inactive") return false;
+  return true;
 }
 
 async function getInventory({ forceRefresh = false } = {}) {
@@ -864,11 +866,12 @@ function scoreByItemType(property, intent) {
 
   if (intent.wantsBoat) {
     if (includesAny(itemType, ["boat", "yacht", "catamaran", "catamarán", "lancha"])) {
-      score += 12;
+      score += 40;
     } else {
-      score -= 4;
+      score -= 30;
     }
   }
+
 
   if (intent.wantsExperience) {
     if (includesAny(itemType, ["tour", "experience", "activity"])) {
@@ -1032,7 +1035,7 @@ function scoreByClientProfile(property, threadId) {
   if ((profile.experiences || 0) >= 2) {
     if (includesAny(itemType, ["experience", "tour", "activity"])) score += 5;
   }
-
+if (!property.status || property.status === "Active") score += 3;
   return score;
 }
 function totalScore(property, intent, threadId) {
@@ -1054,7 +1057,7 @@ function rankInventory(inventory, intent, threadId) {
       property,
       score: totalScore(property, intent, threadId),
     }))
-    .filter((entry) => entry.score > -10)
+    .filter((entry) => entry.score > -20)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
 
