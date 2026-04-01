@@ -120,6 +120,8 @@ return {
 };
     })
     .filter(p => p.name);
+    .filter(p => p.maxPax > 0);
+  
 
   const q = userMessage.toLowerCase();
   const isSpanish = /[áéíóúñ¿¡]|\b(casas|cartagena|personas|piscina|centro)\b/i.test(userMessage);
@@ -135,11 +137,8 @@ return {
     let ok = true;
 
     if (wantsCartagena) {
-      ok = ok && (
-        p.city.toLowerCase().includes("cartagena") ||
-        p.neighborhood.toLowerCase().includes("cartagena")
-      );
-    }
+  ok = ok && p.city.toLowerCase().includes("cartagena");
+}
 
     if (wantsCentro) {
       ok = ok && (
