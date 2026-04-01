@@ -183,8 +183,12 @@ return {
   }
 
   filtered = filtered
-    .sort((a, b) => b.maxPax - a.maxPax)
-    .slice(0, 3);
+  .sort((a, b) => {
+    const diffA = Math.abs(a.maxPax - wantedPax);
+    const diffB = Math.abs(b.maxPax - wantedPax);
+    return diffA - diffB;
+  })
+  .slice(0, 3);
 
  if (!filtered.length) {
   return `Connected to inventory. Total properties found: ${properties.length}. Matches found: ${filtered.length}.`;
