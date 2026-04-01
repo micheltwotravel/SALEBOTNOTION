@@ -148,8 +148,8 @@ return {
     }
 
     if (wantedPax) {
-      ok = ok && p.maxPax >= wantedPax;
-    }
+  ok = ok && p.maxPax >= wantedPax && p.maxPax <= wantedPax + 4;
+}
 
     if (wantsPool) {
       ok = ok && (
@@ -199,15 +199,19 @@ return {
   if (isSpanish) {
     const intro = "Estas son algunas opciones reales del inventario que podrían servirte:\n\n";
     const body = filtered.map(p => {
-      const link = p.website || p.airbnb;
-      return `*${p.name}* en ${p.neighborhood || p.city}. Tiene ${p.bedrooms} habitaciones, ${p.bathrooms} baños y capacidad para ${p.maxPax} personas. Amenities: ${p.amenities || "No especificados"}. Precio: ${p.price || "No especificado"}. ${link ? `Link: ${link}` : ""}`;
+      const link =
+  (p.website && p.website.startsWith("http") ? p.website : "") ||
+  (p.airbnb && p.airbnb.startsWith("http") ? p.airbnb : "");
+      return `*${p.name}* en ${p.neighborhood || p.city}. Tiene ${p.bedrooms} habitaciones, ${p.bathrooms} baños y capacidad para ${p.maxPax} personas. Amenities: ${p.amenities || "No especificados"}. Precio: ${p.price || "No especificado"}. ${link ? `Link: ${link}` : "Link: Not available"};
     }).join("\n\n");
     return `${intro}${body}\n\n¿Quieres que se las envíe al cliente?`;
   } else {
     const intro = "Here are a few real inventory options that could be a good fit:\n\n";
     const body = filtered.map(p => {
-      const link = p.website || p.airbnb;
-      return `*${p.name}* in ${p.neighborhood || p.city}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathrooms, and accommodates up to ${p.maxPax} guests. Amenities: ${p.amenities || "Not specified"}. Price: ${p.price || "Not specified"}. ${link ? `Link: ${link}` : ""}`;
+      const link =
+  (p.website && p.website.startsWith("http") ? p.website : "") ||
+  (p.airbnb && p.airbnb.startsWith("http") ? p.airbnb : "");
+      return `*${p.name}* in ${p.neighborhood || p.city}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathrooms, and accommodates up to ${p.maxPax} guests. Amenities: ${p.amenities || "Not specified"}. Price: ${p.price || "Not specified"}. ${link ? `Link: ${link}` : "Link: Not available"}`;
     }).join("\n\n");
     return `${intro}${body}\n\nWould you like me to send these to the client?`;
   }
