@@ -83,7 +83,7 @@ Rules:
 - For each option, include: property name, area, bedrooms, bathrooms, max capacity, key amenities, price, and website link or Airbnb link if available.
 - Keep the response short, clean, and sales-friendly.
 - End by offering to refine the search or show more options.
-- Do not offer to send anything to the client.
+- Do not offer to send anything to the client.`;
 // ── Llamada a OpenAI ──────────────────────────────────────────────────────────
 async function askOpenAI(userMessage, threadId) {
   const inventory = await searchNotion();
