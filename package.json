@@ -2,9 +2,9 @@
   "name": "two-travel-slack-bot",
   "version": "1.0.0",
   "description": "Two Travel sales assistant bot for Slack",
-  "main": "src/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node index.js",
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
