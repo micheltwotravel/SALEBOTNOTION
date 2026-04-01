@@ -61,7 +61,7 @@ async function searchNotion() {
     ].filter(l => !l.endsWith(": ") && !l.endsWith(": |  | ")).join("\n");
   });
 
-  return items.slice(0, 5).join("\n\n---\n\n");
+  return items.join("\n\n---\n\n");
 }
 
 // ── Historial por conversación ────────────────────────────────────────────────
