@@ -82,7 +82,8 @@ Rules:
 - Do not ask follow-up questions if the user already gave enough information to search.
 - For each option, include: property name, area, bedrooms, bathrooms, max capacity, key amenities, price, and website link or Airbnb link if available.
 - Keep the response short, clean, and sales-friendly.
-- End with: "Would you like me to send these to the client?"`;
+- End by offering to refine the search or show more options.
+- Do not offer to send anything to the client.
 // ── Llamada a OpenAI ──────────────────────────────────────────────────────────
 async function askOpenAI(userMessage, threadId) {
   const inventory = await searchNotion();
@@ -210,7 +211,7 @@ return {
       return `*${p.name}* en ${p.neighborhood || p.city}. Tiene ${p.bedrooms} habitaciones, ${p.bathrooms} baños y capacidad para ${p.maxPax} personas. Amenities: ${p.amenities || "No especificados"}. Precio: ${p.price || "No especificado"}. ${link ? `Link: ${link}` : "Link: Not available"}`;
     }).join("\n\n");
 
-    return `${intro}${body}\n\n¿Quieres que se las envíe al cliente?`;
+    return `${intro}${body}\n\nSi quieres, puedo mostrarte más opciones o afinar la búsqueda.`;
   } else {
     const intro = "Here are a few real inventory options that could be a good fit:\n\n";
 
@@ -222,7 +223,7 @@ return {
       return `*${p.name}* in ${p.neighborhood || p.city}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathrooms, and accommodates up to ${p.maxPax} guests. Amenities: ${p.amenities || "Not specified"}. Price: ${p.price || "Not specified"}. ${link ? `Link: ${link}` : "Link: Not available"}`;
     }).join("\n\n");
 
-    return `${intro}${body}\n\nWould you like me to send these to the client?`;
+    return `${intro}${body}\n\nIf you'd like, I can show more options or refine the search.`;
   }
 }
 // ── Eventos de Slack ──────────────────────────────────────────────────────────
