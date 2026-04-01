@@ -121,6 +121,7 @@ return {
     .filter(p => p.name);
 
   const q = userMessage.toLowerCase();
+  const isSpanish = /[áéíóúñ¿¡]|\b(casas|cartagena|personas|piscina|centro)\b/i.test(userMessage);
 
   const wantsCartagena = q.includes("cartagena");
   const wantsCentro = q.includes("centro") || q.includes("center") || q.includes("historic center");
@@ -191,28 +192,36 @@ return {
   .slice(0, 3);
 
  if (!filtered.length) {
-  return `Connected to inventory. Total properties found: ${properties.length}. Matches found: ${filtered.length}.`;
+  return isSpanish
+  ? "No encontré opciones relevantes en el inventario en este momento."
+  : "I couldn't find relevant options in the inventory right now.";
 }
 
-  const isSpanish = /[áéíóúñ¿¡]|\b(casas|cartagena|personas|piscina|centro)\b/i.test(userMessage);
+  
 
-  if (isSpanish) {
+    if (isSpanish) {
     const intro = "Estas son algunas opciones reales del inventario que podrían servirte:\n\n";
+
     const body = filtered.map(p => {
       const link =
-  (p.website && p.website.startsWith("http") ? p.website : "") ||
-  (p.airbnb && p.airbnb.startsWith("http") ? p.airbnb : "");
-      return `*${p.name}* en ${p.neighborhood || p.city}. Tiene ${p.bedrooms} habitaciones, ${p.bathrooms} baños y capacidad para ${p.maxPax} personas. Amenities: ${p.amenities || "No especificados"}. Precio: ${p.price || "No especificado"}. ${link ? `Link: ${link}` : "Link: Not available"};
+        (p.website && p.website.startsWith("http") ? p.website : "") ||
+        (p.airbnb && p.airbnb.startsWith("http") ? p.airbnb : "");
+
+      return `*${p.name}* en ${p.neighborhood || p.city}. Tiene ${p.bedrooms} habitaciones, ${p.bathrooms} baños y capacidad para ${p.maxPax} personas. Amenities: ${p.amenities || "No especificados"}. Precio: ${p.price || "No especificado"}. ${link ? `Link: ${link}` : "Link: Not available"}`;
     }).join("\n\n");
+
     return `${intro}${body}\n\n¿Quieres que se las envíe al cliente?`;
   } else {
     const intro = "Here are a few real inventory options that could be a good fit:\n\n";
+
     const body = filtered.map(p => {
       const link =
-  (p.website && p.website.startsWith("http") ? p.website : "") ||
-  (p.airbnb && p.airbnb.startsWith("http") ? p.airbnb : "");
+        (p.website && p.website.startsWith("http") ? p.website : "") ||
+        (p.airbnb && p.airbnb.startsWith("http") ? p.airbnb : "");
+
       return `*${p.name}* in ${p.neighborhood || p.city}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathrooms, and accommodates up to ${p.maxPax} guests. Amenities: ${p.amenities || "Not specified"}. Price: ${p.price || "Not specified"}. ${link ? `Link: ${link}` : "Link: Not available"}`;
     }).join("\n\n");
+
     return `${intro}${body}\n\nWould you like me to send these to the client?`;
   }
 }
