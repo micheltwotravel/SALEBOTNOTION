@@ -175,11 +175,24 @@ function truncate(text, maxLen = 2900) {
 function getThreadState(threadId) {
   if (!threadStore.has(threadId)) {
     threadStore.set(threadId, {
-      history: [],
-      lastIntent: null,
-      lastResults: [],
-      shownIds: new Set(),
-    });
+  history: [],
+  lastIntent: null,
+  lastResults: [],
+  shownIds: new Set(),
+  clientProfile: {
+    luxury: 0,
+    budget: 0,
+    family: 0,
+    group: 0,
+    events: 0,
+    boats: 0,
+    beach: 0,
+    centro: 0,
+    apartments: 0,
+    houses: 0,
+    experiences: 0,
+  },
+});
   }
   return threadStore.get(threadId);
 }
@@ -301,7 +314,96 @@ function deriveComparablePrice(property) {
 
   return null;
 }
+function getOrCreateClientProfile(threadId) {
+  const state = getThreadState(threadId);
 
+  if (!state.clientProfile) {
+    state.clientProfile = {
+      luxury: 0,
+      budget: 0,
+      family: 0,
+      group: 0,
+      events: 0,
+      boats: 0,
+      beach: 0,
+      centro: 0,
+      apartments: 0,
+      houses: 0,
+      experiences: 0,
+    };
+  }
+
+  return state.clientProfile;
+}
+
+function updateClientProfileFromMessage(threadId, text) {
+  const profile = getOrCreateClientProfile(threadId);
+  const t = comparable(text);
+
+  if (includesAny(t, ["luxury", "lujo", "premium", "exclusive", "exclusive", "high end"])) {
+    profile.luxury += 2;
+  }
+
+  if (includesAny(t, ["cheap", "budget", "económico", "economico", "affordable", "under", "menos de", "hasta"])) {
+    profile.budget += 2;
+  }
+
+  if (includesAny(t, ["family", "familia", "kids", "children", "niños", "ninos"])) {
+    profile.family += 2;
+  }
+
+  if (includesAny(t, ["group", "grupo", "friends", "amigos"])) {
+    profile.group += 2;
+  }
+
+  if (includesAny(t, ["event", "evento", "wedding", "boda", "venue"])) {
+    profile.events += 2;
+  }
+
+  if (includesAny(t, ["boat", "bote", "lancha", "yacht", "catamaran", "catamarán"])) {
+    profile.boats += 2;
+  }
+
+  if (includesAny(t, ["beach", "playa", "ocean", "sea", "frente al mar"])) {
+    profile.beach += 1;
+  }
+
+  if (includesAny(t, ["historic center", "old city", "walled city", "centro historico", "centro histórico", "centro"])) {
+    profile.centro += 1;
+  }
+
+  if (includesAny(t, ["apartment", "apartamento", "apt", "condo"])) {
+    profile.apartments += 1;
+  }
+
+  if (includesAny(t, ["house", "casa", "villa", "home"])) {
+    profile.houses += 1;
+  }
+
+  if (includesAny(t, ["experience", "tour", "activity", "actividad", "plan"])) {
+    profile.experiences += 1;
+  }
+
+  return profile;
+}
+
+function summarizeClientProfile(profile) {
+  const tags = [];
+
+  if (profile.luxury > profile.budget) tags.push("luxury");
+  if (profile.budget >= profile.luxury && profile.budget >= 2) tags.push("budget");
+  if (profile.family >= 2) tags.push("family");
+  if (profile.group >= 2) tags.push("group");
+  if (profile.events >= 2) tags.push("events");
+  if (profile.boats >= 2) tags.push("boats");
+  if (profile.beach >= 2) tags.push("beach");
+  if (profile.centro >= 2) tags.push("historic-center");
+  if (profile.apartments > profile.houses) tags.push("apartments");
+  if (profile.houses > profile.apartments) tags.push("houses");
+  if (profile.experiences >= 2) tags.push("experiences");
+
+  return uniq(tags);
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTION PROPERTY READER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -686,8 +788,11 @@ function buildIntent(userText, previousIntent = null) {
     intent.wantedBedrooms = intent.wantedBedrooms || previousIntent.wantedBedrooms || null;
     intent.wantedBathrooms = intent.wantedBathrooms || previousIntent.wantedBathrooms || null;
     intent.budget = intent.budget || previousIntent.budget || null;
+   
   }
 
+  
+ intent.requestConciergeStyle = true;
   return intent;
 }
 
@@ -869,8 +974,68 @@ function scoreByCompleteness(property) {
   if (property.clientPrice || property.priceRange) score += 1;
   return score;
 }
+function scoreByClientProfile(property, threadId) {
+  const state = getThreadState(threadId);
+  const profile = state.clientProfile || {};
+  const blob = property.searchBlob;
+  const itemType = comparable(property.itemType);
 
-function totalScore(property, intent) {
+  let score = 0;
+
+  if ((profile.luxury || 0) > (profile.budget || 0)) {
+    if (includesAny(blob, ["luxury", "lujo", "premium", "exclusive", "high end"])) score += 6;
+    if (property.twpTravelWebpage) score += 1;
+  }
+
+  if ((profile.budget || 0) >= (profile.luxury || 0) && (profile.budget || 0) >= 2) {
+    if (property.comparablePrice) score += 2;
+  }
+
+  if ((profile.family || 0) >= 2) {
+    if ((property.maxPax || 0) >= 4) score += 3;
+  }
+
+  if ((profile.group || 0) >= 2) {
+    if ((property.maxPax || 0) >= 6) score += 4;
+  }
+
+  if ((profile.events || 0) >= 2) {
+    if (includesAny(itemType, ["venue"]) || includesAny(blob, ["event", "evento", "wedding", "boda"])) {
+      score += 6;
+    }
+  }
+
+  if ((profile.boats || 0) >= 2) {
+    if (includesAny(itemType, ["boat", "yacht", "lancha", "catamaran", "catamarán"])) {
+      score += 7;
+    } else {
+      score -= 5;
+    }
+  }
+
+  if ((profile.beach || 0) >= 2) {
+    if (includesAny(blob, ["beach", "playa", "ocean", "sea", "frente al mar"])) score += 4;
+  }
+
+  if ((profile.centro || 0) >= 2) {
+    if (includesAny(blob, ["historic center", "old city", "walled city", "centro historico"])) score += 4;
+  }
+
+  if ((profile.apartments || 0) > (profile.houses || 0)) {
+    if (includesAny(itemType, ["apartment", "apart", "condo"])) score += 3;
+  }
+
+  if ((profile.houses || 0) > (profile.apartments || 0)) {
+    if (includesAny(itemType, ["house", "villa", "casa", "home"])) score += 3;
+  }
+
+  if ((profile.experiences || 0) >= 2) {
+    if (includesAny(itemType, ["experience", "tour", "activity"])) score += 5;
+  }
+
+  return score;
+}
+function totalScore(property, intent, threadId) {
   return (
     scoreByCity(property, intent) +
     scoreByHistoricCenter(property, intent) +
@@ -878,15 +1043,16 @@ function totalScore(property, intent) {
     scoreByCapacity(property, intent) +
     scoreByAmenities(property, intent) +
     scoreByBudget(property, intent) +
-    scoreByCompleteness(property)
+    scoreByCompleteness(property) +
+    scoreByClientProfile(property, threadId)
   );
 }
 
-function rankInventory(inventory, intent) {
+function rankInventory(inventory, intent, threadId) {
   return inventory
     .map((property) => ({
       property,
-      score: totalScore(property, intent),
+      score: totalScore(property, intent, threadId),
     }))
     .filter((entry) => entry.score > -10)
     .sort((a, b) => {
@@ -932,14 +1098,19 @@ function formatAmenities(amenities, lang, maxItems = 5) {
 
 function bestPublicLink(property) {
   return firstValidUrl(
-    property.twpTravelWebpage,
-    property.airbnbLink,
-    property.photosLink
+    property.twpTravelWebpage, // 👈 prioridad
+    property.photosLink,
+    property.airbnbLink
   );
 }
 
 function formatPropertySummary(property, lang) {
-  const location = [property.neighborhood, property.city].filter(Boolean).join(", ");
+  const location = [
+  property.neighborhood,
+  property.neighborhoodSummary,
+  property.city,
+  property.location
+].filter(Boolean).join(", ");
   const link = bestPublicLink(property);
   const price = formatField(property.clientPrice || property.priceRange, lang);
 
@@ -950,6 +1121,8 @@ function formatPropertySummary(property, lang) {
       `Tipo: ${formatField(property.itemType, lang)}`,
       `Habitaciones: ${formatField(property.bedrooms, lang)} | Baños: ${formatField(property.bathrooms, lang)} | Capacidad: ${property.maxPax || "No especificado"}`,
       `Amenities: ${formatAmenities(property.amenities, lang)}`,
+property.description ? `Descripción: ${property.description}` : null,
+property.venueType ? `Tipo de venue: ${property.venueType}` : null,
       `Precio: ${price}`,
       link ? `Link: ${link}` : `Link: No disponible`,
     ]
@@ -963,6 +1136,8 @@ function formatPropertySummary(property, lang) {
     `Type: ${formatField(property.itemType, lang)}`,
     `Bedrooms: ${formatField(property.bedrooms, lang)} | Bathrooms: ${formatField(property.bathrooms, lang)} | Capacity: ${property.maxPax || "Not specified"}`,
     `Amenities: ${formatAmenities(property.amenities, lang)}`,
+property.description ? `Description: ${property.description}` : null,
+property.venueType ? `Venue type: ${property.venueType}` : null,
     `Price: ${price}`,
     link ? `Link: ${link}` : `Link: Not available`,
   ]
@@ -970,30 +1145,39 @@ function formatPropertySummary(property, lang) {
     .join("\n");
 }
 
-function buildPlainFallbackReply(lang, results) {
+function buildPlainFallbackReply(lang, results, threadId = null, intent = null) {
   if (!results.length) {
     return t(
       lang,
-      "No encontré opciones relevantes con esos criterios en el inventario actual. Si quieres, puedo ampliar la búsqueda con menos filtros.",
-      "I couldn’t find relevant options with those criteria in the current inventory. I can broaden the search if you'd like."
+      "No encontré una opción fuerte con esos criterios exactos en el inventario actual. Si quieres, puedo ampliar la búsqueda con menos filtros.",
+      "I couldn’t find a strong exact match with those criteria in the current inventory. I can broaden the search if you'd like."
     );
   }
 
-  const intro = t(
-    lang,
-    "Estas son algunas opciones reales del inventario que podrían servirte:",
-    "Here are a few real inventory options that could be a good fit:"
-  );
+  const top = results[0];
+  const alternatives = results.slice(1, 3);
 
-  const body = results.map((property) => formatPropertySummary(property, lang)).join("\n\n");
+  const intro = buildConciergeIntro(results, lang);
+  const reason = threadId && intent
+    ? buildRecommendationReason(top, intent, threadId, lang)
+    : t(lang, "es de las opciones más cercanas a lo que buscas", "it is one of the closest matches to what you're looking for");
+
+  const topLabel = t(lang, "Mi primera recomendación:", "My first recommendation:");
+  const altLabel = t(lang, "También podrías considerar:", "You could also consider:");
+
+  const topBlock = `${topLabel}\n${formatPropertySummary(top, lang)}\n${t(lang, `Por qué: ${reason}.`, `Why: ${reason}.`)}`;
+
+  const altBlock = alternatives.length
+    ? `\n\n${altLabel}\n\n${alternatives.map((property) => formatPropertySummary(property, lang)).join("\n\n")}`
+    : "";
 
   const outro = t(
     lang,
-    "Si quieres, puedo mostrarte más opciones o afinar la búsqueda.",
-    "If you'd like, I can show more options or refine the search."
+    "Si quieres, te muestro más opciones o lo afino por presupuesto, zona, tipo de experiencia o estilo.",
+    "If you'd like, I can show more options or refine it by budget, area, experience type, or style."
   );
 
-  return `${intro}\n\n${body}\n\n${outro}`;
+  return `${intro}\n\n${topBlock}${altBlock}\n\n${outro}`;
 }
 
 function compactPropertiesForModel(results) {
@@ -1029,49 +1213,61 @@ function compactPropertiesForModel(results) {
 // OPENAI GENERATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function generateReplyWithOpenAI({ lang, userText, history, results }) {
+async function generateReplyWithOpenAI({ lang, userText, history, results, threadId }) {
   if (!OPENAI_ENABLED || !openai) return null;
 
   const systemPrompt = `
 You are the sales assistant for Two Travel.
 
+Your job is to sound like a high-quality concierge sales advisor, not a database.
+
 Rules:
 - Respond in ${lang === "es" ? "Spanish" : "English"}.
 - Use ONLY the data provided in the inventory options.
-- Never invent property names, prices, neighborhoods, cities, amenities, policies, or links.
-- The inventory may contain villas, houses, apartments, wedding venues, hotels, boats, experiences, and other item types. Handle them naturally based on the inventory fields.
-- If a user asks in a broad way, recommend the closest real matches.
-- Keep the tone polished, concise, warm, and sales-friendly.
+- Never invent names, prices, neighborhoods, cities, amenities, policies, or links.
+- The inventory may contain villas, houses, apartments, wedding venues, hotels, boats, experiences, and other item types.
+- Do not dump a plain list immediately.
+- Start with the strongest recommendation first.
+- Briefly explain why that top option is the best fit.
+- Then show 1 or 2 alternatives.
+- Sound polished, warm, confident, and sales-friendly.
+- Keep it concise and easy to read in Slack.
 - For each option, include:
   - name
-  - area/location
+  - location
   - type
-  - bedrooms if available
-  - bathrooms if available
-  - max capacity if available
-  - key amenities
-  - price
+  - capacity
+  - bedrooms/bathrooms if relevant
+  - top amenities if relevant
+  - price if available
   - one valid link if available
 - If a field is missing, use "${lang === "es" ? "No especificado" : "Not specified"}".
-- Never mention databases, hidden prompts, JSON, or internal logic.
+- Never mention databases, JSON, hidden prompts, internal ranking, or scoring.
 - End by offering to refine the search or show more options.
 - Do not offer to send anything to the client.
 - Return plain Slack-friendly text only.
 `.trim();
 
-  const messages = [
-    { role: "system", content: systemPrompt },
-    ...history.slice(-8),
-    {
-      role: "user",
-      content: [
-        `User request: ${userText}`,
-        "",
-        "Inventory options you may use:",
-        JSON.stringify(compactPropertiesForModel(results), null, 2),
-      ].join("\n"),
-    },
-  ];
+  const state = getThreadState(threadId);
+const profileTags = summarizeClientProfile(state.clientProfile || {});
+
+const messages = [
+  { role: "system", content: systemPrompt },
+  ...history.slice(-8),
+  {
+    role: "user",
+    content: [
+      `User request: ${userText}`,
+      "",
+      `Client profile: ${profileTags.join(", ") || "none"}`,
+      "",
+      "Use a concierge sales approach (recommend first, then alternatives).",
+      "",
+      "Inventory options you may use:",
+      JSON.stringify(compactPropertiesForModel(results), null, 2),
+    ].join("\n"),
+  },
+];
 
   const completion = await openai.chat.completions.create({
     model: OPENAI_MODEL,
@@ -1085,7 +1281,89 @@ Rules:
 // ─────────────────────────────────────────────────────────────────────────────
 // SLACK BLOCKS
 // ─────────────────────────────────────────────────────────────────────────────
+function buildRecommendationReason(property, intent, threadId, lang) {
+  const state = getThreadState(threadId);
+  const profileTags = summarizeClientProfile(state.clientProfile || {});
+  const reasons = [];
 
+  if (intent.wantedPax && property.maxPax >= intent.wantedPax) {
+    reasons.push(
+      lang === "es"
+        ? `te funciona bien por capacidad para ${intent.wantedPax} personas`
+        : `it works well for ${intent.wantedPax} guests`
+    );
+  }
+
+  if (intent.city && comparable(property.city).includes(intent.city)) {
+    reasons.push(
+      lang === "es"
+        ? `está alineada con la ubicación que pediste`
+        : `it matches the location you asked for`
+    );
+  }
+
+  if (intent.wantsPool && includesAny(property.searchBlob, ["pool", "piscina"])) {
+    reasons.push(
+      lang === "es"
+        ? `sí incluye el tipo de amenity que estás buscando`
+        : `it includes the kind of amenity you're looking for`
+    );
+  }
+
+  if (profileTags.includes("luxury") && includesAny(property.searchBlob, ["luxury", "lujo", "premium", "exclusive", "high end"])) {
+    reasons.push(
+      lang === "es"
+        ? `encaja mejor con un perfil más premium`
+        : `it fits a more premium profile`
+    );
+  }
+
+  if (profileTags.includes("budget") && property.comparablePrice) {
+    reasons.push(
+      lang === "es"
+        ? `puede funcionar si estás priorizando precio`
+        : `it may work well if price matters most`
+    );
+  }
+
+  if (profileTags.includes("events") && includesAny(property.searchBlob, ["event", "evento", "wedding", "boda", "venue"])) {
+    reasons.push(
+      lang === "es"
+        ? `tiene buen fit para un evento`
+        : `it has a strong fit for an event`
+    );
+  }
+
+  if (profileTags.includes("boats") && includesAny(comparable(property.itemType), ["boat", "yacht", "lancha", "catamaran", "catamarán"])) {
+    reasons.push(
+      lang === "es"
+        ? `es de las opciones más alineadas con lo que pediste`
+        : `it is one of the closest matches to what you asked for`
+    );
+  }
+
+  if (!reasons.length) {
+    return lang === "es"
+      ? "es de las opciones más cercanas a lo que estás buscando"
+      : "it is one of the closest matches to what you're looking for";
+  }
+
+  return reasons[0];
+}
+
+function buildConciergeIntro(results, lang) {
+  if (!results.length) {
+    return lang === "es"
+      ? "No encontré una opción fuerte con esos filtros exactos."
+      : "I couldn’t find a strong exact match with those filters.";
+  }
+
+  const main = results[0];
+
+  return lang === "es"
+    ? `La opción que más te recomendaría primero es *${main.name}*.`
+    : `The option I’d recommend first is *${main.name}*.`;
+}
 function buildResultHeader(lang, count) {
   if (lang === "es") {
     return count === 1
@@ -1102,7 +1380,12 @@ function buildPropertyBlocks(results, lang) {
   const blocks = [];
 
   for (const property of results) {
-    const location = [property.neighborhood, property.city].filter(Boolean).join(", ");
+    const location = [
+  property.neighborhood,
+  property.neighborhoodSummary,
+  property.city,
+  property.location
+].filter(Boolean).join(", ");
     const link = bestPublicLink(property);
 
     const text =
@@ -1110,10 +1393,12 @@ function buildPropertyBlocks(results, lang) {
         ? [
             `*${property.name}*`,
             location ? `📍 ${location}` : null,
-            `🏷️ ${formatField(property.itemType, lang)}`,
+            `🏷️ ${property.itemType || (lang === "es" ? "Tipo no especificado" : "Type not specified")}`,
             `🛏️ ${formatField(property.bedrooms, lang)} hab | 🛁 ${formatField(property.bathrooms, lang)} baños | 👥 ${property.maxPax || "No especificado"}`,
             `✨ ${formatAmenities(property.amenities, lang)}`,
-            `💵 ${formatField(property.clientPrice || property.priceRange, lang)}`,
+property.description ? `📝 ${property.description}` : null,
+property.venueType ? `🎯 ${property.venueType}` : null,
+`💵 ${formatField(property.clientPrice || property.priceRange, lang)}`,
             link ? `<${link}|Ver opción>` : "🔗 No disponible",
           ]
             .filter(Boolean)
@@ -1121,10 +1406,12 @@ function buildPropertyBlocks(results, lang) {
         : [
             `*${property.name}*`,
             location ? `📍 ${location}` : null,
-            `🏷️ ${formatField(property.itemType, lang)}`,
+            `🏷️ ${property.itemType || (lang === "es" ? "Tipo no especificado" : "Type not specified")}`,
             `🛏️ ${formatField(property.bedrooms, lang)} beds | 🛁 ${formatField(property.bathrooms, lang)} baths | 👥 ${property.maxPax || "Not specified"}`,
             `✨ ${formatAmenities(property.amenities, lang)}`,
-            `💵 ${formatField(property.clientPrice || property.priceRange, lang)}`,
+property.description ? `📝 ${property.description}` : null,
+property.venueType ? `🎯 ${property.venueType}` : null,
+`💵 ${formatField(property.clientPrice || property.priceRange, lang)}`,
             link ? `<${link}|View option>` : "🔗 Not available",
           ]
             .filter(Boolean)
@@ -1206,9 +1493,10 @@ async function searchInventoryForUserMessage(userText, threadId) {
   }
 
   const inventory = await getInventory();
-  const intent = buildIntent(userText, state.lastIntent);
+updateClientProfileFromMessage(threadId, userText);
+const intent = buildIntent(userText, state.lastIntent);
 
-  let ranked = rankInventory(inventory, intent);
+let ranked = rankInventory(inventory, intent, threadId);
   ranked = broadenIfNeeded(inventory, ranked, intent);
 
   const resultCount = intent.requestMore ? MORE_RESULT_COUNT : DEFAULT_RESULT_COUNT;
@@ -1255,17 +1543,20 @@ async function buildReply(userText, threadId) {
 
   try {
     replyText = await generateReplyWithOpenAI({
-      lang,
-      userText,
-      history: state.history,
-      results,
-    });
+  lang,
+  userText,
+  history: state.history,
+  results,
+  threadId,
+});
   } catch (error) {
     logError("OpenAI generation failed", error);
   }
 
+    const currentIntent = state.lastIntent;
+
   if (!replyText) {
-    replyText = buildPlainFallbackReply(lang, results);
+    replyText = buildPlainFallbackReply(lang, results, threadId, currentIntent);
   }
 
   pushHistory(threadId, "assistant", replyText);
@@ -1334,7 +1625,11 @@ app.event("app_mention", async ({ event, say }) => {
 });
 
 app.message(async ({ message, say }) => {
-  if (message.subtype || message.bot_id) return;
+  if (
+    message.subtype ||
+    message.bot_id ||
+    String(message.text || "").includes("<@")
+  ) return;
 
   const threadId = message.thread_ts || message.ts;
   const threadTs = message.thread_ts || message.ts;
