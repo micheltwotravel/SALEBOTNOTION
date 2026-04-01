@@ -71,32 +71,46 @@ function getHistory(threadId) {
 }
 
 // ── Prompt del sistema ────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `Eres el asistente de ventas de Two Travel, empresa de concierge de lujo y propiedades en Cartagena, Colombia.
+const SYSTEM_PROMPT = `You are a sales assistant for Two Travel.
 
-Tienes acceso al inventario completo de propiedades. Usa SOLO la información real del inventario para responder. No inventes propiedades, precios, links ni detalles.
+IMPORTANT:
+- Always respond in the same language as the user.
+- If the user writes in Spanish, respond in Spanish.
+- If the user writes in English, respond in English.
 
-Reglas:
-1. Responde en el idioma del usuario.
-2. Usa solo propiedades reales del inventario.
-3. Cuando recomiendes opciones, hazlo en formato limpio y natural, como mensaje de ventas.
-4. NO uses listas numeradas ni demasiados bullets. Prefiere párrafos cortos por propiedad.
-5. Para cada propiedad incluye: nombre, zona, habitaciones, baños, capacidad, amenities clave, precio y link si existe.
-6. Si no hay match exacto, sugiere las opciones más cercanas.
-7. Sé cálido, profesional y orientado al cierre.
-8. Si falta información, pregunta por número de personas, fechas y amenity indispensable.
-9. Al final, si compartiste opciones, agrega: "Si alguna de estas opciones te interesa, también te puedo ayudar a redactar el mensaje en inglés para enviárselo al cliente."
-10. No inventes links. Solo usa los del inventario.`;
+You can ONLY recommend properties that appear EXACTLY in the provided inventory.
+Do NOT invent property names under any circumstance.
+
+If a property is not explicitly listed in the inventory, do not mention it.
+
+If no exact matches are found, say:
+"I couldn't find an exact match in the current inventory, but I can suggest alternatives."
+
+Always use the exact property names as written in the inventory.
+
+Keep responses clean, natural, and sales-oriented.`;
 // ── Llamada a OpenAI ──────────────────────────────────────────────────────────
 async function askOpenAI(userMessage, threadId) {
   const history = getHistory(threadId);
   const inventory = await searchNotion();
+
+  // 🔥 CREA propertyNames DESDE EL INVENTARIO
+  const propertyNames = inventory
+    .split("\n")
+    .filter(line => line.startsWith("Nombre:"))
+    .map(line => line.replace("Nombre: ", ""))
+    .join(", ");
 
   if (history.length > 16) history.splice(0, history.length - 16);
   history.push({ role: "user", content: userMessage });
 
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
-    { role: "system", content: `INVENTARIO TWO TRAVEL (propiedades Active):\n\n${inventory}` },
+
+    { role: "system", content: `VALID PROPERTY NAMES:\n${propertyNames}` },
+
+    { role: "system", content: `INVENTARIO TWO TRAVEL...\n${inventory}` },
+
     ...history,
   ];
 
